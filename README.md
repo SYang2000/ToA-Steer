@@ -2,7 +2,7 @@
 
 Shuo Yang, Caren Han, Shuhe Wang, Eduard Hovy
 
-[Project page](https://syang2000.github.io/ToA-Steer/) · [Paper](https://arxiv.org/) · [Data](https://huggingface.co/datasets/Pleuron/ToA-Eval)
+[Project page](https://syang2000.github.io/ToA-Steer/) · [Paper](https://syang2000.github.io/ToA-Steer/paper.pdf) · [Data](https://huggingface.co/datasets/Pleuron/ToA-Eval)
 
 Code will be released in this repository soon.
 

@@ -37,7 +37,7 @@
       <span><sup>3</sup><img src="static/images/cmu.png" alt="Carnegie Mellon University" class="logo wide"></span>
     </p>
     <div class="pills">
-      <a class="pill" href="https://arxiv.org/" target="_blank" rel="noopener" data-link="paper"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.8h8.2L19 7.6V21.2H6z M14 2.8V8h5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>Paper</a>
+      <a class="pill" href="paper.pdf" target="_blank" rel="noopener" data-link="paper"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.8h8.2L19 7.6V21.2H6z M14 2.8V8h5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>Paper</a>
       <a class="pill" href="https://github.com/SYang2000/ToA-Steer" target="_blank" rel="noopener" data-link="code"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>Code</a>
       <a class="pill" href="https://huggingface.co/datasets/Pleuron/ToA-Eval" target="_blank" rel="noopener" data-link="data"><span class="emoji" aria-hidden="true">🤗</span>Data</a>
       <a class="pill demo" href="#demo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></svg>Demo</a>
@@ -202,25 +202,28 @@
 <section class="band demo-band" id="demo">
   <div class="container">
     <div class="sec-head"><span class="sec-num c-white">06</span><h2>Demo</h2></div>
-    <p class="lead">Pick a question and compare the baseline with ToA-Steer. The router reads the decision-token state, picks a cluster, and steers toward THINK or ACT.</p>
+    <p class="lead">Real Qwen3-8B runs on three benchmark problems. The same THINK/ACT direction is added with strength <i>m</i> = &minus;150, 0 or +150, and the model decides on its own whether to call a tool. Tool calls are actually executed and their outputs returned to the model.</p>
     <div class="playground">
       <div class="pg-side">
-        <p class="pg-label">Question</p>
-        <div id="pg-questions" class="pg-questions" role="listbox" aria-label="Example questions"></div>
+        <p class="pg-label">Problem</p>
+        <div id="pg-questions" class="pg-questions" role="listbox" aria-label="Demo problems"></div>
       </div>
       <div class="pg-main">
         <div class="pg-top">
-          <div class="tabs" id="pg-mode"></div>
-          <span class="pg-badge">Pre-computed examples from the paper</span>
+          <span class="pg-label pg-label-inline" id="pg-bench"></span>
+          <span class="pg-badge">Qwen3-8B &middot; raw outputs</span>
         </div>
-        <p class="pg-q" id="pg-q"></p>
+        <div class="pg-problem mathy" id="pg-problem"></div>
+        <p class="pg-gt mathy" id="pg-gt"></p>
+        <div class="pg-runs" id="pg-runs" role="tablist" aria-label="Steering strength"></div>
         <div class="pg-router" id="pg-router">
           <div class="pg-axis"><span>THINK</span><div class="pg-track"><i id="pg-dot"></i></div><span>ACT</span></div>
           <p id="pg-router-text"></p>
         </div>
-        <div class="pg-trace" id="pg-trace" aria-live="polite"></div>
+        <div class="pg-steps" id="pg-trace" aria-live="polite"></div>
       </div>
     </div>
+    <p class="demo-note" id="pg-note"></p>
     <div class="live">
       <div><b>Live demo</b><span>Run ToA-Steer on your own question with Qwen3-8B.</span></div>
       <a class="pill" href="#" data-link="demo" aria-disabled="true">Coming soon</a>
@@ -249,6 +252,8 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script src="static/demo_data.js"></script>
 <script src="static/data.js"></script>
 <script src="static/main.js"></script>
 </body>

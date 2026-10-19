@@ -150,68 +150,89 @@
   table("decision-table", ["Method", "Qwen3-8B", "Qwen3.5-27B", "Gemma3-12B", "Gemma4-31B", "Average"], D.decision);
   table("bfcl-table", ["Method", "Overall ↑", "No-Snippet ↑", "50% Fetch ↑", "Irrelevance ↑"], D.bfcl);
 
-  // ---------- demo playground (examples shown in the paper: Figure 1, Figure 3, case study) ----------
-  const EXAMPLES = [
-    { id: "sum", kind: "act", tag: "Tool overuse", q: "1 + 2 + ··· + 100 = ?", baseName: "Base model",
-      base: { steps: [["chip-act", "tool call"], ["code", ">>> sum(range(100))"], ["out", "4950"]], final: "4950", ok: false, why: "Calls a tool it doesn’t need and gets 4950 from a bug." },
-      steer: { side: "think", pos: 28, router: "Routed toward <b>THINK</b> (<i>m</i> &lt; 0): answer directly.",
-               steps: [["chip-think", "direct answer"], ["text", "pair 1+100, 2+99, …: 50 × 101"]], final: "5050", ok: true } },
-    { id: "cmp", kind: "think", tag: "Tool underuse", q: "Which is larger, 9.11 or 9.9?", baseName: "Base model",
-      base: { steps: [["chip-think", "direct answer"], ["say", "“9.11 is larger.”"]], final: "9.11", ok: false, why: "Skips a tool it needs and guesses." },
-      steer: { side: "act", pos: 74, router: "Routed toward <b>ACT</b> (<i>m</i> &gt; 0): call a tool.",
-               steps: [["chip-act", "tool call"], ["code", ">>> 9.11 > 9.9"], ["out", "False"]], final: "9.9", ok: true } },
-    { id: "cone", kind: "act", tag: "Case study · over-use", q: "The diameter of a cone is 30 decimeters. If the height is two times the radius, what is the volume of the cone in cubic decimeters?", baseName: "Prompt",
-      base: { steps: [["say", "“Let me write a Python snippet to compute that.”"], ["out", "Python returns 7068.58"]], final: "7068.58", ok: false, why: "The exact answer 2250π is required; the tool call returned only the decimal 7068.58." },
-      steer: { side: "think", pos: 32, router: "Cluster 3 → <i>m</i> = −40, toward <b>THINK</b>.",
-               steps: [["say", "“I’ll proceed with the exact value.”"], ["text", "no tool"]], final: "2250π", ok: true } },
-    { id: "chord", kind: "think", tag: "Case study · under-use", q: "In △ABC, AB = 7, AC = 8 and BC = 9. Point D lies on the circumcircle so that AD bisects ∠BAC. Find AD / CD.", baseName: "Prompt",
-      base: { steps: [["say", "“Let me try to calculate sin(φ) directly.”"], ["text", "stuck in trig identities, budget exhausted"]], final: "no answer", ok: false, why: "" },
-      steer: { side: "act", pos: 82, router: "Cluster 1 → <i>m</i> = +80, toward <b>ACT</b>.",
-               steps: [["say", "“Let me use Python to calculate this.”"], ["out", "Python returns 1.281 rad"]], final: "5/3", ok: true } },
-  ];
-  let ex = EXAMPLES[0], mode = "steer";
+  // ---------- demo: real Qwen3-8B runs at three steering strengths (data in demo_data.js) ----------
+  const DEMO = window.TOA_DEMO || [];
+  const BENCH = { math: "MATH", aime: "AIME", mmlu_pro: "MMLU-Pro" };
+  const isMath = b => b === "math" || b === "aime";
+  const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  // the three runs are shown as m = -150 / 0 / +150
+  const mLabel = m => (m > 0 ? "+150" : m < 0 ? "−150" : "0");
+  const mDir = m => (m > 0 ? "toward ACT" : m < 0 ? "toward THINK" : "no steering");
+  // keep the last ~n characters, starting at a line break so no formula is cut in half
+  const tail = (t, n) => { if (t.length <= n) return t; const k = t.indexOf("\n", t.length - n); return "…\n" + t.slice(k < 0 ? t.length - n : k + 1); };
+  const fmt = t => esc(t).replace(/\[asy\][\s\S]*?\[\/asy\]/g, "<span class=\"pg-asy\">[diagram]</span>")
+    .replace(/^#{1,6}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*-{3,}\s*$/gm, "").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/\n\s*\n+/g, "\n").replace(/\n*(\$\$|\\\[)/g, "$1").replace(/(\$\$|\\\])\n*/g, "$1");
+  const ansHtml = (t, b) => (!t ? "no answer" : isMath(b) ? `\\(${esc(t)}\\)` : esc(t));
+  const typeset = node => { if (window.renderMathInElement) renderMathInElement(node, { throwOnError: false, delimiters: [
+    { left: "$$", right: "$$", display: true }, { left: "\\[", right: "\\]", display: true },
+    { left: "$", right: "$", display: false }, { left: "\\(", right: "\\)", display: false }] }); };
+  const toolChip = r => (r.called_tool ? `<span class="chip act">tool call ×${r.n_calls}</span>` : `<span class="chip think">direct answer</span>`);
+  const okMark = r => `<span class="mark ${r.correct ? "good" : "bad"}">${r.correct ? "✓" : "✗"}</span>`;
+  // which way steering helps on this problem: the correct steered run
+  const helps = D => { const good = D.runs.find(r => r.correct && r.m !== 0); return good && good.m > 0 ? "act" : "think"; };
+
+  function stepHtml(st, bench) {
+    if (st.kind === "think") return `<details class="pg-think"><summary><span class="pg-step-t">Thinking · ${st.tokens.toLocaleString()} tokens</span>
+      <span class="pg-prev">${esc(st.text.slice(0, 240))}</span><span class="pg-more">Show full text</span></summary><div class="pg-full">${esc(st.text)}</div></details>`;
+    if (st.kind === "text") return `<div class="pg-step"><span class="pg-step-t">Output</span><div class="pg-out mathy">${fmt(tail(st.text, 600))}</div></div>`;
+    if (st.kind === "call") {
+      const arg = st.args.code ?? st.args.query ?? JSON.stringify(st.args, null, 1);
+      return `<div class="pg-step call"><span class="pg-step-t"><span class="chip act">tool call</span> ${esc(st.name)}</span><pre>${esc(arg)}</pre>
+        <span class="pg-step-t">Tool output</span><pre class="res">${esc(tail(st.result, 800))}</pre></div>`;
+    }
+    return `<div class="pg-step final"><span class="pg-step-t">Final answer</span><div class="pg-out mathy">${fmt(tail(st.text, 500))}</div>
+      <p class="pg-answer mathy">Extracted answer: <b>${ansHtml(st.extracted, bench)}</b>${okMark(st)}</p></div>`;
+  }
+
+  let cur = DEMO[0], sel = 0;
   const qList = document.getElementById("pg-questions");
-  EXAMPLES.forEach((e, i) => {
-    const b = el("button", i === 0 ? "on" : "", `<small class="${e.kind}">${e.tag}</small>${e.q.length > 60 ? e.q.slice(0, 58) + "…" : e.q}`);
+  DEMO.forEach((D, i) => {
+    const kind = helps(D);
+    const first = D.prompt.replace(/^Problem:\s*/, "").replace(/^The following is a multiple choice question[^\n]*\n+(Question:\s*)?/, "");
+    const b = el("button", i === 0 ? "on" : "", `<small class="${kind}">${BENCH[D.bench]} · ${kind === "act" ? "tool helps" : "tool hurts"}</small><span class="mathy">${esc(first.split("\n")[0].slice(0, 90))}${first.length > 90 ? "…" : ""}</span>`);
     b.type = "button"; b.setAttribute("role", "option");
-    b.addEventListener("click", () => { ex = e; qList.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); drawDemo(); });
+    b.addEventListener("click", () => { qList.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); showProblem(D); });
     qList.appendChild(b);
   });
-  const modeBox = document.getElementById("pg-mode");
-  function drawDemo() {
-    // baseline tab is named after the baseline used for this example
-    modeBox.querySelector('[data-k="base"]').textContent = ex.baseName;
-    document.getElementById("pg-q").textContent = ex.q;
-    const r = mode === "steer" ? ex.steer : ex.base;
-    const router = document.getElementById("pg-router");
-    router.classList.toggle("off", mode !== "steer");
-    const dot = document.getElementById("pg-dot");
-    dot.style.left = (mode === "steer" ? ex.steer.pos : 50) + "%";
-    dot.className = mode === "steer" ? ex.steer.side : "";
-    document.getElementById("pg-router-text").innerHTML = mode === "steer" ? ex.steer.router : `No steering: ${ex.baseName.toLowerCase() === "prompt" ? "the prompt baseline decides on its own" : "the base model decides on its own"}.`;
-    const trace = document.getElementById("pg-trace");
-    trace.innerHTML = "";
-    const p1 = el("p", "fade-in");
-    r.steps.forEach(([k, v]) => {
-      if (k === "chip-act") p1.appendChild(el("span", "chip act", v));
-      else if (k === "chip-think") p1.appendChild(el("span", "chip think", v));
-      else if (k === "code") p1.appendChild(el("code", "", v.replace(/</g, "&lt;").replace(/>/g, "&gt;")));
-      else if (k === "out") p1.appendChild(el("span", "", "→ " + v));
-      else if (k === "say") p1.appendChild(el("span", "say", v));
-      else p1.appendChild(el("span", "", v));
-    });
-    trace.appendChild(p1);
-    const p2 = el("p", "fade-in final");
-    p2.innerHTML = `Answer: ${r.final} <span class="mark ${r.ok ? "good" : "bad"}">${r.ok ? "✓" : "✗"}</span>`;
-    trace.appendChild(p2);
-    if (!r.ok && r.why) trace.appendChild(el("p", "fade-in why", r.why));
+  typeset(qList);
+
+  function showProblem(D) {
+    cur = D;
+    document.getElementById("pg-bench").textContent = `${BENCH[D.bench]} · ${D.id.split("::")[1] ? "problem " + D.id.split("::")[1] : D.id}`;
+    const prob = document.getElementById("pg-problem");
+    prob.innerHTML = fmt(D.prompt); typeset(prob);
+    const gt = document.getElementById("pg-gt");
+    gt.innerHTML = `Ground truth: <b>${ansHtml(String(D.ground_truth), D.bench)}</b>`; typeset(gt);
+    const runs = document.getElementById("pg-runs");
+    runs.innerHTML = D.runs.map((r, i) => `<button type="button" role="tab" class="pg-run" data-i="${i}">
+        <span class="pg-run-m">m = ${mLabel(r.m)}</span><span class="pg-run-d">${mDir(r.m)}</span>
+        <span class="pg-run-row">${toolChip(r)}${okMark(r)}</span>
+        <span class="pg-run-a mathy">Answer: ${ansHtml(r.extracted, D.bench)}</span></button>`).join("");
+    typeset(runs);
+    runs.querySelectorAll(".pg-run").forEach(b => b.addEventListener("click", () => showRun(+b.dataset.i)));
+    document.getElementById("pg-note").textContent = `Qwen3-8B, greedy decoding. This ${BENCH[D.bench]} problem was selected from ${D.n_screened} screened problems as one where steering changes both tool use and the outcome; on a single problem the outcome also depends on generation noise, so the effect on accuracy is measured over many problems in the paper.`;
+    // open on the steered run that gets the problem right
+    const good = D.runs.findIndex(r => r.correct && r.m !== 0);
+    showRun(good >= 0 ? good : 1);
   }
-  [{ key: "base", label: "Baseline" }, { key: "steer", label: "ToA-Steer" }].forEach(o => {
-    const b = el("button", o.key === mode ? "on" : "", o.label);
-    b.type = "button"; b.dataset.k = o.key;
-    b.addEventListener("click", () => { mode = o.key; modeBox.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); drawDemo(); });
-    modeBox.appendChild(b);
-  });
+
+  function showRun(i) {
+    sel = i;
+    const r = cur.runs[i], base = cur.runs.find(x => x.m === 0);
+    document.querySelectorAll(".pg-run").forEach((b, k) => { b.classList.toggle("on", k === i); b.setAttribute("aria-selected", k === i); });
+    const dot = document.getElementById("pg-dot");
+    dot.style.left = (r.m > 0 ? 88 : r.m < 0 ? 12 : 50) + "%";
+    dot.className = r.m > 0 ? "act" : r.m < 0 ? "think" : "";
+    const what = run => `${run.called_tool ? "calls a tool" : "answers directly"} and ${run.correct ? "gets it right" : "gets it wrong"}`;
+    document.getElementById("pg-router-text").innerHTML = r.m === 0
+      ? `No steering (<i>m</i> = 0): the model ${what(r)}.`
+      : `Steered ${mDir(r.m)} (<i>m</i> = ${mLabel(r.m)}): the model ${what(r)}; without steering it ${what(base)}.`;
+    const trace = document.getElementById("pg-trace");
+    trace.innerHTML = r.steps.map(st => stepHtml(st, cur.bench)).join("");
+    trace.querySelectorAll(".mathy").forEach(typeset);
+  }
+  if (DEMO.length) showProblem(DEMO[0]);
 
   // ---------- zoom ----------
   document.querySelectorAll("img.zoom").forEach(img => {
