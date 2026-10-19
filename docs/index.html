@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>To Think or to Act? — ToA-Steer</title>
+<meta name="description" content="A single activation direction controls adaptive tool use in LLM agents. ToA-Eval measures when a tool helps or hurts a given model; ToA-Steer routes each query to a signed steering strength, with no parameter updates.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+
+<nav class="topnav" id="topnav" aria-label="Sections">
+  <div class="container nav-in">
+    <a class="brand" href="#top"><span class="dot-b"></span>ToA-Steer</a>
+    <div class="links">
+      <a href="#problem">Problem</a><a href="#toa-eval">ToA-Eval</a><a href="#method">Method</a><a href="#results">Results</a><a href="#demo">Demo</a><a href="#citation">Citation</a>
+    </div>
+    <button class="theme" id="theme" type="button" aria-label="Toggle light or dark theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="container">
+    <p class="kicker"><span>Tool use</span><span>Representation steering</span><span>Training-free</span></p>
+    <h1>To <span class="w-think">Think</span> or to <span class="w-act">Act</span>?</h1>
+    <p class="subtitle">A Single Activation Direction Controls Adaptive Tool Use in LLM Agents</p>
+    <p class="authors">Shuo Yang<sup>1</sup><span>Caren Han<sup>1</sup></span><span>Shuhe Wang<sup>1,2</sup></span><span>Eduard Hovy<sup>1,3</sup></span></p>
+    <p class="affils">
+      <span><sup>1</sup><img src="static/images/unimelb.png" alt="" class="logo">The University of Melbourne</span>
+      <span><sup>2</sup><img src="static/images/pku.png" alt="" class="logo">Peking University</span>
+      <span><sup>3</sup><img src="static/images/cmu.png" alt="Carnegie Mellon University" class="logo wide"></span>
+    </p>
+    <div class="pills">
+      <a class="pill" href="https://arxiv.org/" target="_blank" rel="noopener" data-link="paper"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.8h8.2L19 7.6V21.2H6z M14 2.8V8h5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>Paper</a>
+      <a class="pill" href="https://github.com/SYang2000/ToA-Steer" target="_blank" rel="noopener" data-link="code"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>Code</a>
+      <a class="pill" href="https://huggingface.co/datasets/Pleuron/ToA-Eval" target="_blank" rel="noopener" data-link="data"><span class="emoji" aria-hidden="true">🤗</span>Data</a>
+      <a class="pill demo" href="#demo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></svg>Demo</a>
+    </div>
+    <div class="axis" aria-hidden="true"><span>THINK</span><i></i><span>ACT</span></div>
+  </div>
+</header>
+
+<main>
+
+<section class="band teaser-band">
+  <div class="container">
+    <figure class="teaser">
+      <img src="static/images/teaser.png" alt="Two failure modes of tool-using agents, one steering direction that fixes both, and results averaged over four LLMs and four benchmarks.">
+      <figcaption><b>Figure 1.</b> (a) Tool-using LLM agents both overuse tools and underuse them. (b) ToA-Steer shifts activations along one direction with a per-query signed strength <span class="tex">m_{c(x)}</span>: toward THINK for <span class="tex">q_1</span>, toward ACT for <span class="tex">q_2</span>. (c) Averaged over four LLMs and four reasoning benchmarks, it cuts tool overuse by 20 and underuse by 11 points over prompting and gives the highest accuracy, without any parameter updates.</figcaption>
+    </figure>
+    <div class="numbers" aria-label="Key numbers">
+      <div class="n-blue"><b>16/16</b><span>settings with the highest accuracy</span></div>
+      <div class="n-orange"><b>+16 / +9</b><span>points on ACT-needed / THINK-preferred</span></div>
+      <div class="n-teal"><b>50</b><span>contrastive pairs to find the direction</span></div>
+      <div class="n-violet"><b>0</b><span>parameter updates</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 01 ===================== -->
+<section class="band warm" id="problem">
+  <div class="container">
+    <div class="sec-head"><span class="sec-num c-orange">01</span><h2>Tool use goes wrong in both directions</h2></div>
+    <p class="lead">A tool call can fix a failed reasoning trajectory when computation or lookup is needed, but it can also add noise or overwrite an answer the model would have produced correctly on its own. The bottleneck for capable agents is not only tool <em>competence</em> but tool-use <em>selectivity</em>: deciding when to think and when to act.</p>
+    <div class="pair">
+      <div class="mini over">
+        <p class="tagline">Tool overuse</p>
+        <p class="q">1 + 2 + &middot;&middot;&middot; + 100 = ?</p>
+        <p class="line"><span class="chip act">tool call</span><code>&gt;&gt;&gt; sum(range(100))</code><span class="mark bad">✗</span></p>
+        <p class="why">Calls a tool it doesn&rsquo;t need and gets 4950 from a bug.</p>
+      </div>
+      <div class="mini under">
+        <p class="tagline">Tool underuse</p>
+        <p class="q">Which is larger, 9.11 or 9.9?</p>
+        <p class="line"><span class="chip think">direct answer</span><span>&ldquo;9.11 is larger.&rdquo;</span><span class="mark bad">✗</span></p>
+        <p class="why">Skips a tool it needs and guesses 9.11.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 02 ===================== -->
+<section class="band cool" id="toa-eval">
+  <div class="container">
+    <div class="sec-head"><span class="sec-num c-blue">02</span><h2>ToA-Eval: when does a tool help <i>this</i> model?</h2></div>
+    <p class="lead">For each problem and each model, ToA-Eval runs two controlled passes of the same base model &mdash; one <b>without tools</b> and one that <b>must use a tool</b> &mdash; and keeps only the cases where the tool changes the outcome. The same question can need a tool for one model but not another, so labels are derived separately for every model.</p>
+    <div class="eval-grid">
+      <div class="matrix" role="table" aria-label="ToA-Eval labels">
+        <div></div><div class="mh">with tool ✓</div><div class="mh">with tool ✗</div>
+        <div class="rh">no tool ✗</div><div class="cell act"><b>ACT</b>tool fixes an error</div><div class="cell off">both wrong<br>excluded</div>
+        <div class="rh">no tool ✓</div><div class="cell off">both right<br>excluded</div><div class="cell think"><b>THINK</b>tool breaks a right answer</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Instances per model</h3>
+          <div class="tabs" id="bench-tabs"></div>
+        </div>
+        <div id="counts-chart" class="stack" aria-live="polite"></div>
+        <p class="legend"><i class="sw act"></i>ACT-needed <i class="sw think"></i>THINK-preferred</p>
+      </div>
+    </div>
+    <p class="note">Sources: AIME 2024&ndash;2026, MATH, GPQA and MMLU-Pro. Tools: Python execution and Wikipedia search.</p>
+  </div>
+</section>
+
+<!-- ===================== 03 ===================== -->
+<section class="band mint" id="method">
+  <div class="container">
+    <div class="sec-head"><span class="sec-num c-teal">03</span><h2>ToA-Steer: one direction, routed per query</h2></div>
+    <p class="lead">A single static strength cannot serve both classes: ACT-needed inputs must move toward tool use and THINK-preferred inputs away from it. ToA-Steer keeps <b>one shared direction</b> and lets a lightweight router choose the <b>sign and strength</b> for each input.</p>
+    <div class="steps">
+      <div class="step s1"><span class="k">1</span><h3>Extract the direction</h3><p>Two completions share the prompt and differ only in the decision: &ldquo;Use [tools] to address this query.&rdquo; vs. &ldquo;Answer directly from your own knowledge.&rdquo;</p><div class="eq" data-tex="v_\ell=\frac{1}{N}\sum_{i=1}^{N}\big(h_\ell^{(+)}(x_i)-h_\ell^{(-)}(x_i)\big)"></div></div>
+      <div class="step s2"><span class="k">2</span><h3>Route each query</h3><p>The decision-token state is projected with PCA and assigned to the nearest <i>K</i>-means centroid; each cluster keeps the signed magnitude with the best held-out accuracy.</p><div class="eq" data-tex="c(x)=\arg\min_k\big\lVert\phi(z_\ell(x))-\mu_k\big\rVert_2"></div></div>
+      <div class="step s3"><span class="k">3</span><h3>Steer every step</h3><p>The same vector is added with the routed sign and strength: <span class="tex">m&gt;0</span> promotes a tool call, <span class="tex">m&lt;0</span> favours answering directly.</p><div class="eq" data-tex="\tilde h_{\ell,t}=h_{\ell,t}+m_{c(x)}\,v_\ell"></div></div>
+    </div>
+    <figure class="fig">
+      <img class="zoom" src="static/images/overview.png" alt="Overview of ToA-Eval and ToA-Steer">
+      <figcaption><b>Figure 2.</b> On the probe split, ToA-Steer labels problems with ToA-Eval, extracts a shared THINK/ACT direction, sweeps the steering strength, and fits a PCA + <i>K</i>-means router. At inference each input goes to its nearest centroid and is steered at every decoding step.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ===================== 04 ===================== -->
+<section class="band" id="results">
+  <div class="container">
+    <div class="sec-head"><span class="sec-num c-teal">04</span><h2>Results</h2></div>
+    <p class="lead">ToA-Steer reaches the highest accuracy and the best ACT and THINK tool-call rates in every model&ndash;benchmark cell, beating SFT and RL-trained GRPO without any parameter updates.</p>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Main results</h3>
+        <div class="tab-groups"><div class="tabs" id="model-tabs"></div><div class="tabs" id="metric-tabs"></div></div>
+      </div>
+      <div id="main-chart" class="bench-grid" aria-live="polite"></div>
+      <p class="legend fam"><i class="sw f-prompt"></i>Prompting <i class="sw f-train"></i>Training-based <i class="sw f-static"></i>Static steering <i class="sw ours"></i>ToA-Steer</p>
+      <p class="note" id="metric-note"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Averaged over 4 LLMs &times; 4 benchmarks</h3>
+      <div id="summary-chart" class="summary"></div>
+      <p class="note">Each column&rsquo;s axis is zoomed to its own range; numbers are exact values.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Full evaluation pool</h3>
+      <p class="note">Accuracy (%) by outcome group, pooled over four models, mean &plusmn; SD over five runs. <i>Headroom recovered</i> is the gain over Base on decision-relevant instances relative to an oracle that always takes the better action.</p>
+      <div class="table-wrap"><table class="data" id="fullpool-table"></table></div>
+    </div>
+
+    <div class="panel">
+      <h3>Does it steer the decision or the whole trajectory?</h3>
+      <p class="note">Overall accuracy (%) on the full pool. Stopping the steering once the model commits to its first action already beats the tuned static baseline on every model.</p>
+      <div class="table-wrap"><table class="data" id="decision-table"></table></div>
+    </div>
+
+    <div class="panel">
+      <h3>Transfer to live web search</h3>
+      <p class="note">Calibrated on GPQA with Wikipedia and applied to BFCL V4 Web Search on Qwen3.5-27B without re-calibration.</p>
+      <div class="table-wrap"><table class="data" id="bfcl-table"></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 05 ===================== -->
+<section class="band lav" id="analysis">
+  <div class="container">
+    <div class="sec-head"><span class="sec-num c-violet">05</span><h2>Inside the model</h2></div>
+    <p class="lead">Five findings about where the THINK/ACT decision lives and why routing it per query pays off.</p>
+    <div class="findings">
+      <article class="finding c1">
+        <div class="f-text"><span class="f-tag">Finding 1 &middot; Depth</span><h3>The decision is written at a consistent depth</h3><p>A logit lens at the prompt-end token shows the tool/skip preference staying near zero in early layers, rising across layers 20&ndash;28 and peaking at layer 26 on Qwen3-8B. All four models share a similar pattern.</p></div>
+        <figure class="fig"><img class="zoom" loading="lazy" src="static/images/Logit_Lens.png" alt="Logit lens across layers"></figure>
+      </article>
+      <article class="finding c2">
+        <div class="f-text"><span class="f-tag">Finding 2 &middot; Structure</span><h3>Decision regimes form clusters</h3><p>Coloured by the steering magnitude that maximises accuracy, decision-token activations form coherent regions, so an unsupervised partition recovers useful routing groups &mdash; from <i>K</i>=2 on MATH to 5 on GPQA.</p></div>
+        <figure class="fig"><img class="zoom" loading="lazy" src="static/images/Clustering.png" alt="PCA of decision-token activations"></figure>
+      </article>
+      <article class="finding c3">
+        <div class="f-text"><span class="f-tag">Finding 3 &middot; Control</span><h3>One direction is a clean control axis</h3><p>Within a moderate range of |<i>m</i>| the tool-call rate rises smoothly with <i>m</i>, and accuracy peaks away from the no-steer baseline &mdash; but at a different <i>m</i> on each benchmark, so no fixed strength is optimal everywhere.</p></div>
+        <figure class="fig"><img class="zoom" loading="lazy" src="static/images/acc_tool.png" alt="Accuracy and tool-call rate versus steering coefficient"></figure>
+      </article>
+      <article class="finding c4">
+        <div class="f-text"><span class="f-tag">Finding 4 &middot; Both directions</span><h3>Gains on both classes, at moderate cost</h3><p>ToA-Steer gains 16 points on ACT-needed and 9 points on THINK-preferred instances, improves both classes on every benchmark, and reaches the highest accuracy at a moderate tool-call rate.</p></div>
+        <figure class="fig"><img class="zoom" loading="lazy" src="static/images/BreakDown_Efficiency_Row.png" alt="Class- and cost-resolved view"></figure>
+      </article>
+      <article class="finding c5">
+        <div class="f-text"><span class="f-tag">Finding 5 &middot; Headroom</span><h3>Why route per query</h3><p>Sweeping a single static magnitude traces a frontier that sits well below a per-sample oracle on every benchmark. This headroom is what per-cluster routing recovers.</p></div>
+        <figure class="fig"><img class="zoom" loading="lazy" src="static/images/fig_pareto_frontier.png" alt="Static frontier and oracle headroom"></figure>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 06 Demo ===================== -->
+<section class="band demo-band" id="demo">
+  <div class="container">
+    <div class="sec-head"><span class="sec-num c-white">06</span><h2>Demo</h2></div>
+    <p class="lead">Pick a question and compare the baseline with ToA-Steer. The router reads the decision-token state, picks a cluster, and steers toward THINK or ACT.</p>
+    <div class="playground">
+      <div class="pg-side">
+        <p class="pg-label">Question</p>
+        <div id="pg-questions" class="pg-questions" role="listbox" aria-label="Example questions"></div>
+      </div>
+      <div class="pg-main">
+        <div class="pg-top">
+          <div class="tabs" id="pg-mode"></div>
+          <span class="pg-badge">Pre-computed examples from the paper</span>
+        </div>
+        <p class="pg-q" id="pg-q"></p>
+        <div class="pg-router" id="pg-router">
+          <div class="pg-axis"><span>THINK</span><div class="pg-track"><i id="pg-dot"></i></div><span>ACT</span></div>
+          <p id="pg-router-text"></p>
+        </div>
+        <div class="pg-trace" id="pg-trace" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="live">
+      <div><b>Live demo</b><span>Run ToA-Steer on your own question with Qwen3-8B.</span></div>
+      <a class="pill" href="#" data-link="demo" aria-disabled="true">Coming soon</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== Citation ===================== -->
+<section class="band dark-band" id="citation">
+  <div class="container">
+    <div class="sec-head"><span class="sec-num c-white">07</span><h2>Citation</h2></div>
+    <div class="bib">
+      <button class="copy" id="copy-bib" type="button">Copy</button>
+<pre id="bib-text">@article{yang2026toasteer,
+  title   = {To Think or to Act? A Single Activation Direction Controls
+             Adaptive Tool Use in LLM Agents},
+  author  = {Yang, Shuo and Han, Caren and Wang, Shuhe and Hovy, Eduard},
+  journal = {arXiv preprint},
+  year    = {2026}
+}</pre>
+    </div>
+    <p class="foot">All numbers on this page are taken from the paper and, as in the paper, are illustrative only.</p>
+  </div>
+</section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="static/data.js"></script>
+<script src="static/main.js"></script>
+</body>
+</html>
