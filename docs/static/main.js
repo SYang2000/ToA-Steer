@@ -155,86 +155,96 @@
   const BENCH = { math: "MATH", aime: "AIME", mmlu_pro: "MMLU-Pro" };
   const isMath = b => b === "math" || b === "aime";
   const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const MINUS = "−";
   // the three runs are shown as m = -150 / 0 / +150
-  const mLabel = m => (m > 0 ? "+150" : m < 0 ? "−150" : "0");
-  const mDir = m => (m > 0 ? "toward ACT" : m < 0 ? "toward THINK" : "no steering");
+  const mText = m => (m > 0 ? "+150" : m < 0 ? MINUS + "150" : "0");
+  const side = m => (m > 0 ? "act" : m < 0 ? "think" : "base");
   // keep the last ~n characters, starting at a line break so no formula is cut in half
-  const tail = (t, n) => { if (t.length <= n) return t; const k = t.indexOf("\n", t.length - n); return "…\n" + t.slice(k < 0 ? t.length - n : k + 1); };
-  const fmt = t => esc(t).replace(/\[asy\][\s\S]*?\[\/asy\]/g, "<span class=\"pg-asy\">[diagram]</span>")
+  const tail = (t, n) => {
+    if (t.length <= n) return t;
+    const k = t.indexOf("\n", t.length - n);
+    let out = t.slice(k < 0 ? t.length - n : k + 1);
+    // the cut must not leave half of a display-math block behind
+    if ((out.match(/\$\$/g) || []).length % 2) out = out.slice(out.indexOf("$$") + 2);
+    const close = out.indexOf("\\]"), open = out.indexOf("\\[");
+    if (close >= 0 && (open < 0 || close < open)) out = out.slice(close + 2);
+    return "…\n" + out.replace(/^\s+/, "");
+  };
+  const fmt = t => esc(t).replace(/\[asy\][\s\S]*?\[\/asy\]/g, "")
     .replace(/^#{1,6}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*-{3,}\s*$/gm, "").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
-    .replace(/\n\s*\n+/g, "\n").replace(/\n*(\$\$|\\\[)/g, "$1").replace(/(\$\$|\\\])\n*/g, "$1");
-  const ansHtml = (t, b) => (!t ? "no answer" : isMath(b) ? `\\(${esc(t)}\\)` : esc(t));
+    .replace(/\n\s*\n+/g, "\n").replace(/\n*(\$\$|\\\[)/g, "$1").replace(/(\$\$|\\\])\n*/g, "$1").trim();
+  // the question itself, without the boilerplate every prompt of a benchmark shares
+  const question = D => D.prompt.replace(/^Problem:\s*/, "")
+    .replace(/^The following is a multiple choice question[^\n]*\n+/, "").replace(/^Question:\s*/m, "")
+    .replace(/\n*Solve the problem step by step\.[^\n]*$/, "").replace(/\n*The answer is an integer between[^\n]*/, "");
+  const ans = (t, b) => (!t ? "none" : isMath(b) ? `\\(${esc(t)}\\)` : esc(t));
   const typeset = node => { if (window.renderMathInElement) renderMathInElement(node, { throwOnError: false, delimiters: [
     { left: "$$", right: "$$", display: true }, { left: "\\[", right: "\\]", display: true },
     { left: "$", right: "$", display: false }, { left: "\\(", right: "\\)", display: false }] }); };
-  const toolChip = r => (r.called_tool ? `<span class="chip act">tool call ×${r.n_calls}</span>` : `<span class="chip think">direct answer</span>`);
-  const okMark = r => `<span class="mark ${r.correct ? "good" : "bad"}">${r.correct ? "✓" : "✗"}</span>`;
-  // which way steering helps on this problem: the correct steered run
-  const helps = D => { const good = D.runs.find(r => r.correct && r.m !== 0); return good && good.m > 0 ? "act" : "think"; };
+  const mark = ok => `<span class="dm-mark ${ok ? "ok" : "no"}" aria-label="${ok ? "correct" : "wrong"}">${ok ? "✓" : "✗"}</span>`;
+  const how = r => (r.called_tool ? `${r.n_calls} tool call${r.n_calls > 1 ? "s" : ""}` : "answered directly");
+  const helps = D => { const g = D.runs.find(r => r.correct && r.m !== 0); return g && g.m > 0 ? "act" : "think"; };
 
   function stepHtml(st, bench) {
-    if (st.kind === "think") return `<details class="pg-think"><summary><span class="pg-step-t">Thinking · ${st.tokens.toLocaleString()} tokens</span>
-      <span class="pg-prev">${esc(st.text.slice(0, 240))}</span><span class="pg-more">Show full text</span></summary><div class="pg-full">${esc(st.text)}</div></details>`;
-    if (st.kind === "text") return `<div class="pg-step"><span class="pg-step-t">Output</span><div class="pg-out mathy">${fmt(tail(st.text, 600))}</div></div>`;
+    if (st.kind === "think") return `<details class="dm-think"><summary>Thought for ${st.tokens.toLocaleString()} tokens</summary><div class="dm-full">${esc(st.text)}</div></details>`;
+    if (st.kind === "text") return `<div class="dm-text mathy">${fmt(tail(st.text, 600))}</div>`;
     if (st.kind === "call") {
       const arg = st.args.code ?? st.args.query ?? JSON.stringify(st.args, null, 1);
-      return `<div class="pg-step call"><span class="pg-step-t"><span class="chip act">tool call</span> ${esc(st.name)}</span><pre>${esc(arg)}</pre>
-        <span class="pg-step-t">Tool output</span><pre class="res">${esc(tail(st.result, 800))}</pre></div>`;
+      return `<figure class="dm-tool"><figcaption>${esc(st.name)}</figcaption><pre class="dm-code">${esc(arg)}</pre><pre class="dm-res">${esc(tail(st.result, 800))}</pre></figure>`;
     }
-    return `<div class="pg-step final"><span class="pg-step-t">Final answer</span><div class="pg-out mathy">${fmt(tail(st.text, 500))}</div>
-      <p class="pg-answer mathy">Extracted answer: <b>${ansHtml(st.extracted, bench)}</b>${okMark(st)}</p></div>`;
+    return `<div class="dm-final"><div class="dm-text mathy">${fmt(tail(st.text, 500))}</div></div>`;
   }
 
-  let cur = DEMO[0], sel = 0;
-  const qList = document.getElementById("pg-questions");
+  function column(run, bench, title) {
+    return `<section class="dm-col ${side(run.m)}">
+      <header><div><h4>${title}</h4><p>${how(run)}</p></div>
+        <div class="dm-out"><span class="mathy">${ans(run.extracted, bench)}</span>${mark(run.correct)}</div></header>
+      <div class="dm-steps">${run.steps.map(st => stepHtml(st, bench)).join("")}</div></section>`;
+  }
+
+  let cur = null;
+  const picker = document.getElementById("dm-picker");
   DEMO.forEach((D, i) => {
-    const kind = helps(D);
-    const first = D.prompt.replace(/^Problem:\s*/, "").replace(/^The following is a multiple choice question[^\n]*\n+(Question:\s*)?/, "");
-    const b = el("button", i === 0 ? "on" : "", `<small class="${kind}">${BENCH[D.bench]} · ${kind === "act" ? "tool helps" : "tool hurts"}</small><span class="mathy">${esc(first.split("\n")[0].slice(0, 70))}${first.length > 70 ? "…" : ""}</span>`);
-    b.type = "button"; b.setAttribute("role", "tab");
-    b.addEventListener("click", () => { qList.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); showProblem(D); });
-    qList.appendChild(b);
+    const b = el("button", i === 0 ? "on" : "", `<b>${BENCH[D.bench]}</b><span class="${helps(D)}">${helps(D) === "act" ? "tool helps" : "tool hurts"}</span>`);
+    b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", i === 0);
+    b.addEventListener("click", () => {
+      picker.querySelectorAll("button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
+      showProblem(D);
+    });
+    picker.appendChild(b);
   });
-  typeset(qList);
 
   function showProblem(D) {
     cur = D;
-    const prob = document.getElementById("pg-problem");
-    prob.innerHTML = fmt(D.prompt); typeset(prob);
-    const gt = document.getElementById("pg-gt");
-    gt.innerHTML = `Ground truth: <b>${ansHtml(String(D.ground_truth), D.bench)}</b>`; typeset(gt);
-    const runs = document.getElementById("pg-runs");
-    runs.innerHTML = D.runs.map((r, i) => `<button type="button" role="tab" class="pg-run" data-i="${i}">
-        <span class="pg-run-m">m = ${mLabel(r.m)}</span><span class="pg-run-d">${mDir(r.m)}</span>
-        <span class="pg-run-row">${toolChip(r)}${okMark(r)}</span>
-        <span class="pg-run-a mathy">Answer: ${ansHtml(r.extracted, D.bench)}</span></button>`).join("");
-    typeset(runs);
-    runs.querySelectorAll(".pg-run").forEach(b => b.addEventListener("click", () => showRun(+b.dataset.i)));
-    document.getElementById("pg-note").textContent = `Qwen3-8B, greedy decoding. This ${BENCH[D.bench]} problem was selected from ${D.n_screened} screened problems as one where steering changes both tool use and the outcome; on a single problem the outcome also depends on generation noise, so the effect on accuracy is measured over many problems in the paper.`;
-    // open on the steered run that gets the problem right
+    const q = document.getElementById("dm-q"); q.innerHTML = fmt(question(D)); typeset(q);
+    const gt = document.getElementById("dm-gt"); gt.innerHTML = ans(String(D.ground_truth), D.bench); typeset(gt);
+    const stops = document.getElementById("dm-stops");
+    stops.innerHTML = D.runs.map((r, i) => `<button type="button" role="tab" class="dm-stop ${side(r.m)}" data-i="${i}">
+        <span class="dm-m">${mText(r.m)}</span>
+        <span class="dm-res-line">${mark(r.correct)}<span class="mathy">${ans(r.extracted, D.bench)}</span></span>
+        <span class="dm-how">${r.called_tool ? "tool" : "no tool"}</span></button>`).join("");
+    typeset(stops);
+    stops.querySelectorAll(".dm-stop").forEach(b => b.addEventListener("click", () => showRun(+b.dataset.i)));
+    document.getElementById("dm-note").textContent = `Qwen3-8B, greedy decoding. This problem was selected from ${D.n_screened} screened ${BENCH[D.bench]} problems as one where steering changes both tool use and the outcome; on any single problem the outcome also depends on generation noise.`;
     const good = D.runs.findIndex(r => r.correct && r.m !== 0);
     showRun(good >= 0 ? good : 1);
   }
 
   function showRun(i) {
-    sel = i;
     const r = cur.runs[i], base = cur.runs.find(x => x.m === 0);
-    document.querySelectorAll(".pg-run").forEach((b, k) => { b.classList.toggle("on", k === i); b.setAttribute("aria-selected", k === i); });
-    const dot = document.getElementById("pg-dot");
-    dot.style.left = (r.m > 0 ? 88 : r.m < 0 ? 12 : 50) + "%";
-    dot.className = r.m > 0 ? "act" : r.m < 0 ? "think" : "";
-    const what = run => `${run.called_tool ? "calls a tool" : "answers directly"} and ${run.correct ? "gets it right" : "gets it wrong"}`;
-    document.getElementById("pg-router-text").innerHTML = r.m === 0
-      ? `No steering (<i>m</i> = 0): the model ${what(r)}.`
-      : `Steered ${mDir(r.m)} (<i>m</i> = ${mLabel(r.m)}): the model ${what(r)}; without steering it ${what(base)}.`;
-    // baseline on the left, the selected steered run on the right
-    const col = (run, title) => `<section class="pg-col ${run.m > 0 ? "act" : run.m < 0 ? "think" : "base"}"><header><h4>${title}</h4>
-        <span class="pg-run-row">${toolChip(run)}${okMark(run)}</span></header>
-        <div class="pg-steps">${run.steps.map(st => stepHtml(st, cur.bench)).join("")}</div></section>`;
-    const trace = document.getElementById("pg-trace");
-    trace.classList.toggle("single", r.m === 0);
-    trace.innerHTML = col(base, "Baseline \u00b7 <i>m</i> = 0") + (r.m === 0 ? "" : col(r, `Steered ${mDir(r.m)} \u00b7 <i>m</i> = ${mLabel(r.m)}`));
-    trace.querySelectorAll(".mathy").forEach(typeset);
+    document.querySelectorAll(".dm-stop").forEach((b, k) => { b.classList.toggle("on", k === i); b.setAttribute("aria-selected", k === i); });
+    const knob = document.getElementById("dm-knob");
+    knob.style.left = (r.m > 0 ? 100 : r.m < 0 ? 0 : 50) + "%";
+    knob.className = side(r.m);
+    const what = run => `${run.called_tool ? "calls a tool" : "answers directly"} and is ${run.correct ? "right" : "wrong"}`;
+    document.getElementById("dm-caption").innerHTML = r.m === 0
+      ? `Without steering, the model ${what(r)}.`
+      : `Steered toward ${r.m > 0 ? "ACT" : "THINK"}, the model ${what(r)}. Without steering, it ${what(base)}.`;
+    const box = document.getElementById("dm-compare");
+    box.classList.toggle("single", r.m === 0);
+    box.innerHTML = column(base, cur.bench, "Baseline, <i>m</i> = 0") +
+      (r.m === 0 ? "" : column(r, cur.bench, `Steered toward ${r.m > 0 ? "ACT" : "THINK"}, <i>m</i> = ${mText(r.m)}`));
+    box.querySelectorAll(".mathy").forEach(typeset);
   }
   if (DEMO.length) showProblem(DEMO[0]);
 

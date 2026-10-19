@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<link rel="stylesheet" href="static/style.css?v=202610191901">
+<link rel="stylesheet" href="static/style.css?v=202610191906">
 </head>
 <body>
 
@@ -202,25 +202,21 @@
 <section class="band demo-band" id="demo">
   <div class="container">
     <div class="sec-head"><span class="sec-num c-white">06</span><h2>Demo</h2></div>
-    <p class="lead">Real Qwen3-8B runs on three benchmark problems. The same THINK/ACT direction is added with strength <i>m</i> = &minus;150, 0 or +150, and the model decides on its own whether to call a tool. Tool calls are actually executed and their outputs returned to the model.</p>
-    <div class="playground pg-wide">
-      <div class="pg-main">
-        <div class="pg-top">
-          <span class="pg-label pg-label-inline">Problem</span>
-          <span class="pg-badge">Qwen3-8B &middot; raw outputs</span>
-        </div>
-        <div id="pg-questions" class="pg-ptabs" role="tablist" aria-label="Demo problems"></div>
-        <div class="pg-problem mathy" id="pg-problem"></div>
-        <p class="pg-gt mathy" id="pg-gt"></p>
-        <div class="pg-runs" id="pg-runs" role="tablist" aria-label="Steering strength"></div>
-        <div class="pg-router" id="pg-router">
-          <div class="pg-axis"><span>THINK</span><div class="pg-track"><i id="pg-dot"></i></div><span>ACT</span></div>
-          <p id="pg-router-text"></p>
-        </div>
-        <div class="pg-compare" id="pg-trace" aria-live="polite"></div>
+    <p class="lead">Three problems, three steering strengths, real Qwen3-8B outputs. The same THINK/ACT direction is added with strength <i>m</i>, and the model decides on its own whether to call a tool. Tools are actually executed.</p>
+    <div class="dm">
+      <div class="dm-picker" id="dm-picker" role="tablist" aria-label="Problem"></div>
+      <div class="dm-problem">
+        <div class="dm-q mathy" id="dm-q"></div>
+        <div class="dm-gt"><span>Correct answer</span><b class="mathy" id="dm-gt"></b></div>
       </div>
+      <div class="dm-dial" id="dm-dial" role="tablist" aria-label="Steering strength">
+        <div class="dm-rail"><span class="dm-end think">THINK</span><div class="dm-track"><i id="dm-knob"></i></div><span class="dm-end act">ACT</span></div>
+        <div class="dm-stops" id="dm-stops"></div>
+      </div>
+      <p class="dm-caption" id="dm-caption"></p>
+      <div class="dm-compare" id="dm-compare" aria-live="polite"></div>
     </div>
-    <p class="demo-note" id="pg-note"></p>
+    <p class="demo-note" id="dm-note"></p>
     <div class="live">
       <div><b>Live demo</b><span>Run ToA-Steer on your own question with Qwen3-8B.</span></div>
       <a class="pill" href="#" data-link="demo" aria-disabled="true">Coming soon</a>
@@ -250,8 +246,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="static/demo_data.js?v=202610191901"></script>
-<script src="static/data.js?v=202610191901"></script>
-<script src="static/main.js?v=202610191901"></script>
+<script src="static/demo_data.js?v=202610191906"></script>
+<script src="static/data.js?v=202610191906"></script>
+<script src="static/main.js?v=202610191906"></script>
 </body>
 </html>
