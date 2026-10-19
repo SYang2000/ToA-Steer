@@ -254,7 +254,7 @@
       : `Steered toward ${r.m > 0 ? "ACT" : "THINK"}, the model ${what(r)}. Without steering, it ${what(base)}.`;
     const box = document.getElementById("dm-compare");
     box.classList.toggle("single", r.m === 0);
-    box.innerHTML = column(base, cur.bench, "Baseline, <i>m</i> = 0") +
+    box.innerHTML = column(base, cur.bench, "No steering, <i>m</i> = 0") +
       (r.m === 0 ? "" : column(r, cur.bench, `Steered toward ${r.m > 0 ? "ACT" : "THINK"}, <i>m</i> = ${mText(r.m)}`));
     box.querySelectorAll(".mathy").forEach(typeset);
   }
