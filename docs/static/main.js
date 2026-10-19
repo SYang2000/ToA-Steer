@@ -190,8 +190,8 @@
   DEMO.forEach((D, i) => {
     const kind = helps(D);
     const first = D.prompt.replace(/^Problem:\s*/, "").replace(/^The following is a multiple choice question[^\n]*\n+(Question:\s*)?/, "");
-    const b = el("button", i === 0 ? "on" : "", `<small class="${kind}">${BENCH[D.bench]} · ${kind === "act" ? "tool helps" : "tool hurts"}</small><span class="mathy">${esc(first.split("\n")[0].slice(0, 90))}${first.length > 90 ? "…" : ""}</span>`);
-    b.type = "button"; b.setAttribute("role", "option");
+    const b = el("button", i === 0 ? "on" : "", `<small class="${kind}">${BENCH[D.bench]} · ${kind === "act" ? "tool helps" : "tool hurts"}</small><span class="mathy">${esc(first.split("\n")[0].slice(0, 70))}${first.length > 70 ? "…" : ""}</span>`);
+    b.type = "button"; b.setAttribute("role", "tab");
     b.addEventListener("click", () => { qList.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); showProblem(D); });
     qList.appendChild(b);
   });
@@ -199,7 +199,6 @@
 
   function showProblem(D) {
     cur = D;
-    document.getElementById("pg-bench").textContent = `${BENCH[D.bench]} · ${D.id.split("::")[1] ? "problem " + D.id.split("::")[1] : D.id}`;
     const prob = document.getElementById("pg-problem");
     prob.innerHTML = fmt(D.prompt); typeset(prob);
     const gt = document.getElementById("pg-gt");
@@ -228,8 +227,13 @@
     document.getElementById("pg-router-text").innerHTML = r.m === 0
       ? `No steering (<i>m</i> = 0): the model ${what(r)}.`
       : `Steered ${mDir(r.m)} (<i>m</i> = ${mLabel(r.m)}): the model ${what(r)}; without steering it ${what(base)}.`;
+    // baseline on the left, the selected steered run on the right
+    const col = (run, title) => `<section class="pg-col ${run.m > 0 ? "act" : run.m < 0 ? "think" : "base"}"><header><h4>${title}</h4>
+        <span class="pg-run-row">${toolChip(run)}${okMark(run)}</span></header>
+        <div class="pg-steps">${run.steps.map(st => stepHtml(st, cur.bench)).join("")}</div></section>`;
     const trace = document.getElementById("pg-trace");
-    trace.innerHTML = r.steps.map(st => stepHtml(st, cur.bench)).join("");
+    trace.classList.toggle("single", r.m === 0);
+    trace.innerHTML = col(base, "Baseline \u00b7 <i>m</i> = 0") + (r.m === 0 ? "" : col(r, `Steered ${mDir(r.m)} \u00b7 <i>m</i> = ${mLabel(r.m)}`));
     trace.querySelectorAll(".mathy").forEach(typeset);
   }
   if (DEMO.length) showProblem(DEMO[0]);

@@ -305,6 +305,22 @@ table.data td .fam { display: inline-block; width: 8px; height: 8px; border-radi
 .pg-more { font-size: .8rem; font-weight: 600; color: var(--teal); }
 .pg-think[open] .pg-prev, .pg-think[open] .pg-more { display: none; }
 .pg-full { max-height: 320px; overflow: auto; white-space: pre-wrap; font-size: .84rem; line-height: 1.55; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.playground.pg-wide { grid-template-columns: 1fr; }
+.pg-ptabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+@media (max-width: 760px) { .pg-ptabs { grid-template-columns: 1fr; } }
+.pg-ptabs button { text-align: left; border: 1px solid var(--line); background: var(--bg); padding: 10px 12px; border-radius: 12px; cursor: pointer; font: 400 .86rem/1.4 "Inter"; color: var(--ink-2); transition: border-color .15s, box-shadow .15s; }
+.pg-ptabs button small { display: block; font: 700 .66rem "JetBrains Mono", monospace; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 3px; }
+.pg-ptabs button small.act { color: var(--orange); } .pg-ptabs button small.think { color: var(--blue); }
+.pg-ptabs button.on { background: var(--surface); border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); color: var(--ink); }
+.pg-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pg-compare.single { grid-template-columns: 1fr; }
+@media (max-width: 860px) { .pg-compare { grid-template-columns: 1fr; } }
+.pg-col { min-width: 0; border: 1px solid var(--line); border-top: 3px solid var(--ink-3); border-radius: 14px; padding: 12px 14px 14px; background: var(--surface); }
+.pg-col.act { border-top-color: var(--orange); } .pg-col.think { border-top-color: var(--blue); }
+.pg-col header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.pg-col h4 { margin: 0; font: 600 .95rem "Inter"; color: var(--ink); }
+.pg-col header .pg-run-row { gap: 10px; }
+.pg-col .pg-steps { max-height: 520px; }
 .demo-note { margin: 14px 4px 0; font-size: .84rem; color: rgba(255,255,255,.85); }
 .live { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-top: 18px; padding: 16px 22px; border-radius: 16px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); }
 .live b { display: block; color: #fff; }

@@ -203,16 +203,13 @@
   <div class="container">
     <div class="sec-head"><span class="sec-num c-white">06</span><h2>Demo</h2></div>
     <p class="lead">Real Qwen3-8B runs on three benchmark problems. The same THINK/ACT direction is added with strength <i>m</i> = &minus;150, 0 or +150, and the model decides on its own whether to call a tool. Tool calls are actually executed and their outputs returned to the model.</p>
-    <div class="playground">
-      <div class="pg-side">
-        <p class="pg-label">Problem</p>
-        <div id="pg-questions" class="pg-questions" role="listbox" aria-label="Demo problems"></div>
-      </div>
+    <div class="playground pg-wide">
       <div class="pg-main">
         <div class="pg-top">
-          <span class="pg-label pg-label-inline" id="pg-bench"></span>
+          <span class="pg-label pg-label-inline">Problem</span>
           <span class="pg-badge">Qwen3-8B &middot; raw outputs</span>
         </div>
+        <div id="pg-questions" class="pg-ptabs" role="tablist" aria-label="Demo problems"></div>
         <div class="pg-problem mathy" id="pg-problem"></div>
         <p class="pg-gt mathy" id="pg-gt"></p>
         <div class="pg-runs" id="pg-runs" role="tablist" aria-label="Steering strength"></div>
@@ -220,7 +217,7 @@
           <div class="pg-axis"><span>THINK</span><div class="pg-track"><i id="pg-dot"></i></div><span>ACT</span></div>
           <p id="pg-router-text"></p>
         </div>
-        <div class="pg-steps" id="pg-trace" aria-live="polite"></div>
+        <div class="pg-compare" id="pg-trace" aria-live="polite"></div>
       </div>
     </div>
     <p class="demo-note" id="pg-note"></p>
