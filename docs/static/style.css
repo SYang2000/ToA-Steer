@@ -281,15 +281,19 @@ table.data td .fam { display: inline-block; width: 8px; height: 8px; border-radi
 /* ---------- demo: one sheet, a THINK-ACT dial, baseline vs steered ---------- */
 .dm { background: var(--surface); color: var(--ink); border-radius: 26px; padding: 34px 38px 38px; box-shadow: 0 40px 80px -30px rgba(15, 23, 42, .55); }
 @media (max-width: 700px) { .dm { padding: 22px 18px 24px; border-radius: 20px; } }
-.dm-picker { display: inline-flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); margin-bottom: 26px; }
-.dm-picker button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 0; background: none; padding: 8px 16px; border-radius: 10px; cursor: pointer; font: inherit; color: var(--ink-2); transition: background .2s, color .2s; }
-.dm-picker b { font: 600 .95rem "Inter"; color: inherit; }
-.dm-picker span { font-size: .76rem; }
-.dm-picker span.act { color: var(--orange); } .dm-picker span.think { color: var(--blue); }
-.dm-picker button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 4px 14px -6px rgba(15,23,42,.18); }
+.dm-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; max-width: 620px; margin-bottom: 28px; }
+@media (max-width: 560px) { .dm-picker { grid-template-columns: 1fr; } }
+.dm-picker button { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1.5px solid var(--line); background: var(--surface); padding: 12px 16px; border-radius: 14px; cursor: pointer; font: inherit; color: var(--ink-2); transition: border-color .2s, background .2s, color .2s, box-shadow .2s; }
+.dm-picker button:hover { border-color: var(--ink-3); }
+.dm-picker b { font: 600 1.02rem "Inter"; color: inherit; white-space: nowrap; }
+.dm-tag { font: 600 .74rem "Inter"; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.dm-tag.act { color: var(--orange); background: var(--orange-soft); } .dm-tag.think { color: var(--blue); background: var(--blue-soft); }
+.dm-picker button.on { background: var(--ink); border-color: var(--ink); color: #fff; box-shadow: 0 10px 22px -12px rgba(15,23,42,.6); }
+.dm-picker button.on .dm-tag.act { background: rgba(234,122,12,.22); color: #ffb366; } .dm-picker button.on .dm-tag.think { background: rgba(37,99,235,.28); color: #9cc0ff; }
+:root[data-theme="dark"] .dm-picker button.on { background: var(--teal); border-color: var(--teal); }
 .dm-problem { display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: start; padding-bottom: 26px; border-bottom: 1px solid var(--line); }
 @media (max-width: 700px) { .dm-problem { grid-template-columns: 1fr; gap: 14px; } }
-.dm-q { font: 400 1.22rem/1.55 "Newsreader", Georgia, serif; color: var(--ink); white-space: pre-line; max-height: 13.5em; overflow: auto; max-width: 68ch; }
+.dm-q { font: 400 1.22rem/1.55 "Newsreader", Georgia, serif; color: var(--ink); white-space: pre-line; max-height: 24em; overflow: auto; max-width: 68ch; }
 .dm-gt { text-align: right; min-width: 120px; }
 @media (max-width: 700px) { .dm-gt { text-align: left; } }
 .dm-gt > span { display: block; font-size: .8rem; color: var(--ink-3); }
@@ -351,6 +355,10 @@ table.data td .fam { display: inline-block; width: 8px; height: 8px; border-radi
 @media (prefers-reduced-motion: reduce) { .dm-track i { transition: none; } }
 :root[data-theme="dark"] .dm { box-shadow: 0 40px 80px -30px rgba(0,0,0,.8); }
 :root[data-theme="dark"] .dm-code, :root[data-theme="dark"] .dm-tool figcaption { background: #050912; }
+.dm-fig { display: block; width: 190px; max-width: 60%; margin: 12px 0 10px; padding: 10px; background: #fff; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); }
+.dm-hl { font-weight: 600; padding: 1px 7px; border-radius: 6px; white-space: nowrap; }
+.dm-hl.ok { color: var(--good); background: rgba(22,163,74,.12); } .dm-hl.no { color: var(--bad); background: rgba(220,38,38,.1); }
+.dm-cut { margin: 8px 0 0; font-size: .82rem; color: var(--bad); }
 .demo-note { margin: 16px 6px 0; font-size: .84rem; color: rgba(255,255,255,.85); }
 .live { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; margin-top: 18px; padding: 16px 22px; border-radius: 16px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); }
 .live b { display: block; color: #fff; }

@@ -174,15 +174,26 @@
     .replace(/^#{1,6}\s*(.+)$/gm, "<b>$1</b>").replace(/^\s*-{3,}\s*$/gm, "").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
     .replace(/\n\s*\n+/g, "\n").replace(/\n*(\$\$|\\\[)/g, "$1").replace(/(\$\$|\\\])\n*/g, "$1").trim();
   // the question itself, without the boilerplate every prompt of a benchmark shares
-  const question = D => D.prompt.replace(/^Problem:\s*/, "")
+  const question = D => D.prompt.replace(/^Problem:\s*/, "").replace(/\s*\[asy\][\s\S]*?\[\/asy\]\s*/, "@@FIG@@")
     .replace(/^The following is a multiple choice question[^\n]*\n+/, "").replace(/^Question:\s*/m, "")
-    .replace(/\n*Solve the problem step by step\.[^\n]*$/, "").replace(/\n*The answer is an integer between[^\n]*/, "");
-  const ans = (t, b) => (!t ? "none" : isMath(b) ? `\\(${esc(t)}\\)` : esc(t));
+    .replace(/\n*Answer: Let's think step by step\.\s*$/, "")
+    .replace(/\n*Solve the problem step by step\.[^\n]*$/, "").replace(/\n*The answer is an integer between[^\n]*/, "")
+    .replace(/of(Caesium)/g, "of $1").replace(/Caesium(atoms|and)/g, "Caesium $1").replace(/ m - s\^-1/g, " m s\u207b\u00b9");
+  const FIGURES = { "math::4173": `<img class="dm-fig" src="static/images/demo_math_diagram.png" alt="Triangle PQR with S on PR, QS perpendicular to PR, angle QRP marked 65 degrees and angle PQS marked x degrees">` };
+  // a run cut off by the token budget can end inside a formula: drop the unclosed tail so the rest renders
+  const closeMath = t => {
+    if ((t.match(/\$\$/g) || []).length % 2) t = t.slice(0, t.lastIndexOf("$$"));
+    const single = t.replace(/\$\$/g, "").match(/\$/g) || [];
+    if (single.length % 2) { const k = t.lastIndexOf("$"); t = t.slice(0, k); }
+    return t;
+  };
+  const ans = (t, b) => (!t ? "no answer" : isMath(b) ? `\\(${esc(t)}\\)` : esc(t));
   const typeset = node => { if (window.renderMathInElement) renderMathInElement(node, { throwOnError: false, delimiters: [
     { left: "$$", right: "$$", display: true }, { left: "\\[", right: "\\]", display: true },
     { left: "$", right: "$", display: false }, { left: "\\(", right: "\\)", display: false }] }); };
   const mark = ok => `<span class="dm-mark ${ok ? "ok" : "no"}" aria-label="${ok ? "correct" : "wrong"}">${ok ? "✓" : "✗"}</span>`;
-  const how = r => (r.called_tool ? `${r.n_calls} tool call${r.n_calls > 1 ? "s" : ""}` : "answered directly");
+  const cutOff = r => (r.steps[r.steps.length - 1].status || "").includes("token");
+  const how = r => (r.called_tool ? `${r.n_calls} tool call${r.n_calls > 1 ? "s" : ""}` : "answered directly") + (cutOff(r) ? ", ran out of tokens" : "");
   const helps = D => { const g = D.runs.find(r => r.correct && r.m !== 0); return g && g.m > 0 ? "act" : "think"; };
 
   function stepHtml(st, bench) {
@@ -192,7 +203,8 @@
       const arg = st.args.code ?? st.args.query ?? JSON.stringify(st.args, null, 1);
       return `<figure class="dm-tool"><figcaption>${esc(st.name)}</figcaption><pre class="dm-code">${esc(arg)}</pre><pre class="dm-res">${esc(tail(st.result, 800))}</pre></figure>`;
     }
-    return `<div class="dm-final"><div class="dm-text mathy">${fmt(tail(st.text, 500))}</div></div>`;
+    const cut = (st.status || "").includes("token");
+    return `<div class="dm-final"><div class="dm-text mathy">${fmt(tail(closeMath(st.text), 500))}${cut ? " \u2026" : ""}</div>${cut ? `<p class="dm-cut">Output cut off: the model ran out of its token budget before giving an answer.</p>` : ""}</div>`;
   }
 
   function column(run, bench, title) {
@@ -205,7 +217,7 @@
   let cur = null;
   const picker = document.getElementById("dm-picker");
   DEMO.forEach((D, i) => {
-    const b = el("button", i === 0 ? "on" : "", `<b>${BENCH[D.bench]}</b><span class="${helps(D)}">${helps(D) === "act" ? "tool helps" : "tool hurts"}</span>`);
+    const b = el("button", i === 0 ? "on" : "", `<b>${BENCH[D.bench]}</b><span class="dm-tag ${helps(D)}">${helps(D) === "act" ? "tool helps" : "tool hurts"}</span>`);
     b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", i === 0);
     b.addEventListener("click", () => {
       picker.querySelectorAll("button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
@@ -216,7 +228,7 @@
 
   function showProblem(D) {
     cur = D;
-    const q = document.getElementById("dm-q"); q.innerHTML = fmt(question(D)); typeset(q);
+    const q = document.getElementById("dm-q"); q.innerHTML = fmt(question(D)).replace("@@FIG@@", FIGURES[D.id] || ""); typeset(q);
     const gt = document.getElementById("dm-gt"); gt.innerHTML = ans(String(D.ground_truth), D.bench); typeset(gt);
     const stops = document.getElementById("dm-stops");
     stops.innerHTML = D.runs.map((r, i) => `<button type="button" role="tab" class="dm-stop ${side(r.m)}" data-i="${i}">
@@ -236,7 +248,7 @@
     const knob = document.getElementById("dm-knob");
     knob.style.left = (r.m > 0 ? 100 : r.m < 0 ? 0 : 50) + "%";
     knob.className = side(r.m);
-    const what = run => `${run.called_tool ? "calls a tool" : "answers directly"} and is ${run.correct ? "right" : "wrong"}`;
+    const what = run => `${run.called_tool ? "calls a tool" : "answers directly"} and <span class="dm-hl ${run.correct ? "ok" : "no"}">is ${run.correct ? "right" : "wrong"}</span>`;
     document.getElementById("dm-caption").innerHTML = r.m === 0
       ? `Without steering, the model ${what(r)}.`
       : `Steered toward ${r.m > 0 ? "ACT" : "THINK"}, the model ${what(r)}. Without steering, it ${what(base)}.`;
@@ -274,6 +286,5 @@
     document.querySelectorAll(".tex").forEach(n => { n.innerHTML = tex(n.textContent); });
     document.querySelectorAll(".eq").forEach(n => { n.innerHTML = tex(n.dataset.tex, true); });
   }
-  drawDemo();
   if (document.readyState === "complete") renderMath(); else window.addEventListener("load", renderMath);
 })();
